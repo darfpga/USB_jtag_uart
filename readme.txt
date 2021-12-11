@@ -1,0 +1,118 @@
+---------------------------------------------------------------------------------
+-- DE10_lite Tiny USB Full Speed decoder by Dar (darfpga@net-c.fr) (05/12/2021)
+-- http://darfpga.blogspot.fr
+---------------------------------------------------------------------------------
+-- Educational use only
+-- Use at your own risk. Beware voltage translation or protection are required
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+-- Main features : Tiny USB decoder for Full Speed USB devices (12Mbit/s)
+--
+--  USB captured frames are displayed on nios2-terminal thru Jtag interface.
+--  Use Jtag-uart to display data and send user commands to decoder/filter.
+--  Data buffer 8ko within Jtag-uart FIFO.
+--  Seems to be no data loss with small devices (keyboard, joysitck, mouse)
+--  Allow to capture Setup frames for analysis.
+--
+--  Reset decoder  : key(0)
+--  Reinit USB bus : key(1) will restart device enumeration
+--
+--  Display
+--    HEX 1-0 : Last key (cmd) entered in nios2-terminal
+--    HEX 3-2 : USB SOF frame counter (7 MSB only)
+--    HEX   4 : Max capture lines
+--	   HEX   5 :
+--       segment 0 : token packet filter on/off
+--       segment 1 : sof   packet filter on/off
+--       segment 2 : data  packet filter on/off
+--       segment 4 : setup packet filter on/off
+--
+--  Commands (via nios2-terminal)
+--		key '1' : toggle token packet filter 
+--		key '2' : toggle sof   packet filter 
+--		key '3' : toggle data  packet filter 
+--		key '4' : toggle setup packet filter 
+--
+--    key 'space' : toggle all active filters on/off
+--
+--		key '6' : trigger/restart acquistion after stop (single shot)
+--		key '7' : +32 lines to max capture buffer (wrap to 0 after 15) 
+--              (0 = continous)
+--		key '8' : -32 lines to max capture buffer (wrap to 15 after 0)
+--              (0 = continous)
+---------------------------------------------------------------------------------
+-- Hardware wiring
+---------------------------------------------------------------------------------
+--  Operating as a spy tool USB power supply *must NOT* be connected to DE10 board.
+--  Only D+ and D- have to be connected to the DE10 board gpio.
+--
+--  If the USB port to be spyied is connected on the same computer as the display
+--  computer (nios2terminal via Jtag-uart on USB BLASTER port there is no need
+--  to connect the USB ground wire to the DE10 board GND.
+--
+--  In other cases make sure that there *NO CURRENT FLOW* between the display 
+--  machine and the USB to be spyied before connected the DE10 ground to the USB
+--  ground. You might have to use isolation transformers for human and hardware
+--  safety.
+--
+--  On DE10_LITE (only)
+--
+-- 	 D+ - green wire to gpio(0) pin #1 thru voltage translation/protection
+-- 	 D- - white wire to gpio(2) pin #3 thru voltage translation/protection
+--
+---------------------------------------------------------------------------------
+--
+-- Voltage protection with Schottky diodes     BAT54S  (A2) o--|>{--o--|>{--O (K1)
+--                                                                  |
+--  use 2 x BAT54S or 4 x BAT42                                  (K2-A1)
+--    + 2 x 47 Ohms
+---------------------------------------------------------------------------------
+--                              --------
+--   gpio(0) pin #1  o-------o--| 47 Ohms|---o D+ USB to spy (green)
+--                           |   --------
+--                           |
+--       gnd pin #30 o--|>{--o  BAT54S
+--                           |
+--     +3.3V pin #29 o--}<|---
+--
+--                              --------
+--   gpio(2) pin #3  o-------o--| 47 Ohms|---o D- USB to spy (white)
+--                           |   --------
+--                           |
+--       gnd pin #30 o--|>{--o
+--                           |
+--     +3.3V pin #29 o--}<|---
+--
+---------------------------------------------------------------------------------
+-- Jtag-uart from QSys
+---------------------------------------------------------------------------------
+-- Jtag-uart comes from Qsys. It can be rebuilt with Qsys from scracth :
+--
+--    - Launch Qsys
+--    - Remove Clock source component
+--    - Add Jtag uart component from IP_catalog Interface_Protocols\serial
+--    - Choose Wite FIFO buffer depth
+--    - Double-click on each 4 lines of column 'Export' (lines : Clk, reset, 
+--      avalon_jtag_slave, irq)
+--    - Click on Generate HDL
+--    - Select HDL design files for synthesis => VHDL
+--    - Uncheck Create block symbol file (.bsf)
+--    - Set Ouput_directory
+--    - Click on Generate, Give name jtag_uart_8kw.qsys
+--    - Wait generation completed and close box when done
+--    - Click on Finish in Qsys main windows
+--
+--    - Insert qsys/jtag_uart_8kw/synthesis/jtag_uart_8kw.qip Quartus project
+--
+--    - Modify jtag_uart_8kw.vhd in Quartus to simplify names for entity 
+--      and component declaration
+--        first replace any jtag_uart_0_avalon_jtag_ with av_
+--        then remove any remaining jtag_uart_0_
+--
+---------------------------------------------------------------------------------
+-- Known bugs
+---------------------------------------------------------------------------------
+--  Carriage return / line feed missing after some packets due to early ot late 
+--  end-of-packet Se0. 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
